@@ -3,6 +3,9 @@
 import { useState } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import globe from "../../public/images/globe.png";
+import Image from "next/image";
+import down from "../../public/images/down-arrow.png";
 
 interface CalendarPopupProps {
   isOpen: boolean;
@@ -32,10 +35,21 @@ const CalendarPopup: React.FC<CalendarPopupProps> = ({
     onClose();
   };
 
+  const getCurrentDhakaTime = () => {
+    const now = new Date();
+    const dhakaTime = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Dhaka",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(now);
+    return `Asia/Dhaka (${dhakaTime.toLowerCase()})`;
+  };
+
   return (
-    <div className="absolute top-16 left-4 right-4 bg-white rounded-xl shadow-lg border z-20">
-      <div className="p-4 text-center border-b">
-        <h3 className="text-lg font-semibold text-gray-900">
+    <div className="absolute bottom-14 left-0 right-0  bg-[#F2F2F2]  rounded-[20px]  max-w-[448px] mx-auto  z-20">
+      <div className="p-4 text-center">
+        <h3 className="text-2xl font-medium text-black leading-[34px] tracking-[0.02em]">
           Select a Date & Time
         </h3>
       </div>
@@ -48,19 +62,29 @@ const CalendarPopup: React.FC<CalendarPopupProps> = ({
           next2Label={null}
         />
 
-        <div className="mt-4 pt-4 border-t">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Time zone</h4>
-          <div className="flex items-center text-sm text-gray-600">
-            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-            Asia/Dhaka (1:34pm)
+        <div className="mt-8 ">
+          <h4 className="text-base leading-[26px] tracking-0 font-bold text-black mb-[6px]">
+            Time zone
+          </h4>
+          <div className="flex items-center  gap-3 text-gray-600">
+            {/* <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span> */}
+            <Image alt="globe" src={globe} />
+            <div className="flex items-center gap-1">
+              <p className="text-sm leading-[22px] tracking-0 text-black">
+                {getCurrentDhakaTime()}
+              </p>
+              <Image alt="down arrow" src={down} />
+            </div>
           </div>
         </div>
       </div>
 
       <style jsx>{`
         :global(.custom-calendar) {
-          width: 100%;
+          max-width: 448px;
+          margin: auto;
           border: none;
+          background: #f2f2f2;
           font-family: inherit;
         }
 
@@ -81,21 +105,6 @@ const CalendarPopup: React.FC<CalendarPopupProps> = ({
           border: none;
         }
 
-        :global(.custom-calendar .react-calendar__navigation__arrow) {
-          background: none;
-          border: none;
-          color: #6b7280;
-          font-size: 20px;
-          min-width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          transition: background 0.2s;
-        }
-
-        :global(.custom-calendar .react-calendar__navigation__arrow:hover) {
-          background-color: #f3f4f6;
-        }
-
         /* Weekdays */
         :global(.custom-calendar .react-calendar__month-view__weekdays) {
           margin-bottom: 0.5rem;
@@ -110,23 +119,6 @@ const CalendarPopup: React.FC<CalendarPopupProps> = ({
           font-size: 11px;
           color: #6b7280;
           padding: 6px 0;
-        }
-
-        /* Days */
-        :global(.custom-calendar .react-calendar__tile) {
-          background: none;
-          border: none;
-          color: #111827;
-          font-size: 14px;
-          font-weight: 400;
-          height: 38px;
-          width: 38px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          margin: 2px;
-          transition: background 0.2s, color 0.2s;
         }
 
         :global(.custom-calendar .react-calendar__tile:hover) {
