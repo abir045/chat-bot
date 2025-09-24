@@ -32,12 +32,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${dmSans.variable} antialiased flex flex-col min-h-screen `}
+        className={`${dmSans.variable} antialiased flex flex-col min-h-screen bg-gray-400 `}
       >
-        <Navbar />
+        {/* <Navbar /> */}
         <div className="flex-1">{children}</div>
 
-        <Footer />
+        {/* <Footer /> */}
       </body>
     </html>
   );
