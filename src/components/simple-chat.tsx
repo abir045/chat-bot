@@ -11,6 +11,7 @@ import globe from "../../public/images/globe.png";
 import axios from "axios";
 import time from "../../public/images/time.png";
 import slot from "../../public/images/slot.png";
+import think from "../../public/images/think.png";
 
 interface Message {
   id: string;
@@ -54,6 +55,8 @@ export default function SimpleChat() {
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [showServices, setShowServices] = useState(false);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isClosed, setIsClosed] = useState(false);
 
   const [booking, setBooking] = useState<BookingData>({
     date: "",
@@ -67,6 +70,16 @@ export default function SimpleChat() {
   const [step, setStep] = useState<Step>("idle");
   const [showCalendar, setShowCalendar] = useState(false);
   const [showTimes, setShowTimes] = useState(false);
+
+  const handleMinimize = () => {
+    console.log("Minimize clicked");
+    setIsMinimized((prev) => !prev);
+  };
+
+  const handleClose = () => {
+    console.log("Close clicked");
+    setIsClosed(true);
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -192,7 +205,6 @@ export default function SimpleChat() {
 
   // --- Handle text submissions ---
   const handleSubmit = async (e: React.FormEvent) => {
-    // Made async to await fetch
     e.preventDefault();
     if (!input.trim()) return;
 
@@ -202,8 +214,8 @@ export default function SimpleChat() {
       content: input,
     };
     setMessages((prev) => [...prev, userMessage]);
-    setInput(""); // Clear input immediately after adding user message
-    setIsLoading(true); // Set loading state
+    setInput("");
+    setIsLoading(true);
 
     // Flow logic
     if (step === "idle" && /schedule a meeting/i.test(userMessage.content)) {
@@ -239,7 +251,6 @@ export default function SimpleChat() {
       setShowCalendar(true);
       setStep("date");
     } else if (step === "summary") {
-      // Construct payload for backend
       const payload: BookingData = {
         date: booking.date,
         time: booking.time,
@@ -247,26 +258,19 @@ export default function SimpleChat() {
         summary: userMessage.content,
         description: userMessage.content,
         guest_emails: [booking.user_email],
-        // userId, // Assuming userId is part of BookingData or passed separately if needed by your API
-        // messages, // Assuming messages is not part of BookingData directly but rather context for the AI
       };
 
-      // Log payload and userId
       console.log("User ID:", userId);
       console.log("Final Booking Payload:", payload);
 
-      // Send to backend
       finalizeBooking(payload);
-
-      // No need to clear input here, it's done at the beginning
     } else if (step === "idle") {
-      // This is the new block for idle state asking
       try {
         const res = await fetch(`/api/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId, // Pass userId for context
+            userId,
             message: userMessage.content,
             messages: messages.map((m) => ({
               role: m.role,
@@ -302,12 +306,11 @@ export default function SimpleChat() {
         ]);
       }
     }
-    setIsLoading(false); // Reset loading state
+    setIsLoading(false);
   };
 
-  // --- Handle date selection ---
   const handleDateSelect = (date: Date) => {
-    const formattedDate = date.toISOString().split("T")[0]; // YYYY-MM-DD
+    const formattedDate = date.toISOString().split("T")[0];
     setBooking((prev) => ({ ...prev, date: formattedDate }));
     setShowCalendar(false);
     setMessages((prev) => [
@@ -322,31 +325,14 @@ export default function SimpleChat() {
     setStep("time");
   };
 
-  // Update the time selection handler
   const handleTimeClick = (time: string) => {
     setSelectedTime(time);
   };
-
-  // --- Handle time selection ---
-  // const handleTimeSelect = (time: string) => {
-  //   setBooking((prev) => ({ ...prev, time }));
-  //   setShowTimes(false);
-  //   setMessages((prev) => [
-  //     ...prev,
-  //     {
-  //       id: crypto.randomUUID(),
-  //       role: "assistant",
-  //       content: "What's the meeting about? (summary)",
-  //     },
-  //   ]);
-  //   setStep("summary");
-  // };
 
   const handleTimeNext = () => {
     if (selectedTime) {
       setBooking((prev) => ({ ...prev, time: selectedTime }));
       setShowTimes(false);
-      // Reset for next use
       setShowServices(true);
       setStep("services");
     }
@@ -363,318 +349,98 @@ export default function SimpleChat() {
   };
 
   const handleServicesConfirm = () => {
-    if (selectedServices.length === 0) return; // Don't proceed if no services selected
+    if (selectedServices.length === 0) return;
 
-    // Create summary from selected services
     const summary = selectedServices.join(", ");
 
-    // Construct payload for backend
     const payload: BookingData = {
       date: booking.date,
-      time: selectedTime, // Use selectedTime since booking.time might not be set yet
+      time: selectedTime,
       user_email: booking.user_email,
       summary: summary,
       description: `Meeting to discuss: ${summary}`,
       guest_emails: [booking.user_email],
     };
 
-    // Log payload and userId
     console.log("User ID:", userId);
     console.log("Final Booking Payload:", payload);
 
     setShowServices(false);
     finalizeBooking(payload);
-
-    // setStep("summary");
   };
 
+  if (isClosed) return null;
+
   return (
-    <div className="fixed bottom-6 right-6 z-50">
-      {/* Calendar UI */}
+    <div className="fixed bottom-6 right-6 z-50 max-w-[600px]">
       <CalendarPopup
         isOpen={showCalendar}
         onClose={() => setShowCalendar(false)}
         onDateSelect={handleDateSelect}
       />
 
-      <div className="max-w-[600px] h-[918px] bg-white shadow-xl rounded-xl border flex flex-col overflow-hidden">
-        <Navbar onMinimize={() => {}} onClose={() => {}} />
+      {/* ✅ Show only icon when minimized */}
+      {isMinimized ? (
+        <button
+          onClick={() => setIsMinimized(false)}
+          className="w-14 h-14 rounded-full  flex items-center justify-center shadow-lg"
+          aria-label="Open Chat"
+        >
+          <Image src={think} alt="chat icon" className="w-8 h-8" />
+        </button>
+      ) : (
+        <div className="max-w-[600px] h-[50vh] bg-white shadow-xl rounded-xl border flex flex-col overflow-hidden">
+          <Navbar onMinimize={handleMinimize} onClose={handleClose} />
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto space-y-4 p-5">
-          {messages.map((m) =>
-            m.role === "user" ? (
-              <div
-                key={m.id}
-                className="px-[16px] py-[9px] rounded-[10px] rounded-br-none bg-black text-white ml-auto max-w-xs"
-              >
-                {m.content}
-              </div>
-            ) : m.type === "meeting-card" ? (
-              <div key={m.id} className="mr-auto max-w-md">
-                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                  <h3 className="font-semibold text-gray-900 text-lg mb-3">
-                    {m.meetingData?.summary}
-                  </h3>
-
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-                        <span className="text-white text-xs">⏱</span>
-                      </div>
-                      <span>{m.meetingData?.duration}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-                        <span className="text-white text-xs">📅</span>
-                      </div>
-                      <span>{m.meetingData?.datetime}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-                        <span className="text-white text-xs">👥</span>
-                      </div>
-                      <span>{m.meetingData?.guests}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-                        <span className="text-white text-xs">🌍</span>
-                      </div>
-                      <span>{m.meetingData?.location}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div
-                key={m.id}
-                className="px-[16px] py-[9px] rounded-[10px] rounded-bl-none bg-[#F0F6FF] text-black mr-auto max-w-md whitespace-pre-wrap"
-              >
-                {m.content}
-              </div>
-            )
-          )}
-
-          {/* Time slot UI inside messages area */}
-          {showTimes && (
-            <div className="p-6 bg-[#F2F2F2] rounded-[20px] max-w-[560px] mx-auto">
-              {/* Header with back arrow */}
-              <div className="flex items-center mb-4">
-                <button
-                  onClick={() => {
-                    setShowTimes(false);
-                    setShowCalendar(true);
-                    setStep("date");
-                  }}
-                  className="mr-3 text-gray-600 hover:text-gray-800"
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto space-y-4 p-5">
+            {messages.map((m) =>
+              m.role === "user" ? (
+                <div
+                  key={m.id}
+                  className="px-[16px] py-[9px] rounded-[10px] rounded-br-none bg-black text-white ml-auto max-w-xs"
                 >
-                  <Image alt="back logo" src={previous} />
-                </button>
-              </div>
-
-              {/* Date and timezone info */}
-              <div className="mb-5">
-                <h3 className="text-2xl font-medium leading-[34px] tracking-[-0.02em] text-black mb-2">
-                  {new Date(booking.date).toLocaleDateString("en-US", {
-                    weekday: "long",
-                  })}
-                </h3>
-                <p className="text-sm text-[#4D4D4D] leading-[22px] tracking-0 mb-5">
-                  {new Date(booking.date).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </p>
-
-                <div className="mb-5">
-                  <p className="text-base text-black leading-[26px] tracking-0 font-bold mb-[6px]">
-                    Time zone
-                  </p>
-                  <div className="flex items-center gap-3 text-sm leading-[22px] tracking-0 text-black">
-                    {/* <span className="mr-3">🌍</span> */}
-                    <Image alt="globe" src={globe} />
-                    <span>{getCurrentDhakaTime()}</span>
+                  {m.content}
+                </div>
+              ) : m.type === "meeting-card" ? (
+                <div key={m.id} className="mr-auto max-w-md">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                    <h3 className="font-semibold text-gray-900 text-lg mb-3">
+                      {m.meetingData?.summary}
+                    </h3>
                   </div>
                 </div>
-              </div>
-
-              {/* Time selection */}
-              <div className="">
-                <h4 className="text-2xl leading-[34px] tracking-[-0.02em] text-black mb-2">
-                  Select a Time
-                </h4>
-                <p className="text-sm leading-[22px] tracking-0 text-black mb-8">
-                  Duration: 30 min
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                {[
-                  "3:00 pm",
-                  "3:30 pm",
-                  "4:00 pm",
-                  "4:30 pm",
-                  "5:00 pm",
-                  "5:30 pm",
-                  "6:00 pm",
-                ].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => handleTimeClick(t)}
-                    className={`block w-full text-center px-[18px] py-[7px] text-[#1158E5] hover:bg-[#4D4D4D] hover:text-[#FFFFFF] rounded-[44px] border border-black/10 ${
-                      selectedTime === t
-                        ? "bg-[#4D4D4D] text-white"
-                        : "bg-[#F2F2F2] text-[#1158E5]"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={handleTimeNext}
-                disabled={!selectedTime}
-                className={
-                  "w-full px-[28px] py-[12px] rounded-[44px] text-sm leading-[22px] font-medium tracking-0 bg-[#1158E5] text-white mt-5"
-                }
-              >
-                Next
-              </button>
-            </div>
-          )}
-
-          {/* services */}
-          {showServices && (
-            <div className="p-5 bg-[#F2F2F2] rounded-[20px] max-w-[560px] mx-auto">
-              {/* Header with back arrow */}
-              <div className="flex items-center mb-5">
-                <button
-                  onClick={() => {
-                    setShowServices(false);
-                    setShowTimes(true);
-                    setStep("time");
-                  }}
-                  className="mr-3 text-gray-600 hover:text-gray-800"
+              ) : (
+                <div
+                  key={m.id}
+                  className="px-[16px] py-[9px] rounded-[10px] rounded-bl-none bg-[#F0F6FF] text-black mr-auto max-w-md whitespace-pre-wrap"
                 >
-                  <Image alt="back logo" src={previous} />
-                </button>
-              </div>
-
-              {/* Meeting details header */}
-              <div className="mb-6 border-b">
-                <h3 className="text-2xl font-medium leading-[34px] tracking-[0.02em] text-black max-w-[350px] mb-2">
-                  30 Minute Complimentary Discovery Call
-                </h3>
-
-                <div className="space-y-2 ">
-                  <div className="flex items-center gap-3">
-                    {/* <span>⏱</span> */}
-                    <Image alt="time" src={time} />
-                    <span className="text-sm text-[#4D4D4D] leading-[22px] tracking-0">
-                      30 min
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {/* <span>📅</span> */}
-
-                    <Image alt="slot" src={slot} />
-                    <span className="text-sm leading-[22px] tracking-0 text-[#4D4D4D]">
-                      {booking.time} - {getEndTime(booking.time)},{" "}
-                      {new Date(booking.date).toLocaleDateString("en-US", {
-                        weekday: "long",
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {/* <span>🌍</span> */}
-                    <Image src={globe} alt="globe" />
-                    <span className="text-sm leading-[22px] tracking-0 text-[#4D4D4D]">
-                      {getCurrentDhakaTime()}
-                    </span>
-                  </div>
+                  {m.content}
                 </div>
+              )
+            )}
 
-                <button className="text-[#1158E5] px-[18px] py-[7px] rounded-[44px] border border-black/10 text-[18px] leading-[30px] tracking-0 mt-8 font-medium mb-5">
-                  Add Guest
-                </button>
-                {/* <hr className="w-full" /> */}
-              </div>
+            <div ref={messagesEndRef} />
+          </div>
 
-              {/* Services selection */}
-              <div className="mb-6">
-                <h4 className="text-base font-medium text-black leading-[24px] tracking-0 mb-5">
-                  Which of our services are you most interested in?
-                </h4>
-
-                <div className="space-y-3">
-                  {[
-                    { icon: "⚡", name: "Web & App Development" },
-                    { icon: "🎨", name: "User experience design" },
-                    { icon: "📊", name: "Strategy & digital marketing" },
-                    { icon: "📹", name: "Video production & photography" },
-                    { icon: "💬", name: "Branding & communication" },
-                    { icon: "🔍", name: "Search engine optimization" },
-                    { icon: "📈", name: "Resource augmentation" },
-                  ].map((service) => (
-                    <button
-                      key={service.name}
-                      onClick={() => handleServiceToggle(service.name)}
-                      className={` text-left px-[18px] py-[7px] rounded-[44px] border border-black/10 ${
-                        selectedServices.includes(service.name)
-                          ? "bg-[#4D4D4D] border-black/10 text-white"
-                          : " border-black/10 text-[#1158E5]"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span>{service.icon}</span>
-                        <span className="font-medium">{service.name}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Confirm button */}
-              <button
-                onClick={handleServicesConfirm}
-                className="w-full py-3 rounded-[44px] font-medium bg-[#1158E5] text-white hover:bg-[#0E47C7] transition-colors"
-              >
-                Confirm
+          {!showCalendar && !showTimes && !showServices && (
+            <form onSubmit={handleSubmit} className="flex gap-5 mb-5 px-5">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type your response..."
+                className="flex-1 px-[16px] py-[9px] bg-[#F2F2F2] rounded-[60px]"
+                disabled={isLoading}
+              />
+              <button type="submit" disabled={isLoading}>
+                <Image src={submit} alt="submit" />
               </button>
-            </div>
+            </form>
           )}
 
-          <div ref={messagesEndRef} />
+          <Footer />
         </div>
-
-        {/* Input - Always show unless calendar or time picker is open */}
-        {!showCalendar && !showTimes && !showServices && (
-          <form onSubmit={handleSubmit} className="flex gap-5 mb-5 px-5">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your response..."
-              className="flex-1 px-[16px] py-[9px] bg-[#F2F2F2] rounded-[60px]"
-              disabled={isLoading}
-            />
-            <button type="submit" disabled={isLoading}>
-              <Image src={submit} alt="submit" />
-            </button>
-          </form>
-        )}
-
-        <Footer />
-      </div>
+      )}
     </div>
   );
 }
