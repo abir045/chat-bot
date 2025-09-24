@@ -17,7 +17,7 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  type?: "text" | "meeting-card";
+  type?: "text" | "meeting-card" | "calendar";
   meetingData?: {
     summary: string;
     duration: string;
@@ -159,6 +159,7 @@ export default function SimpleChat() {
       if (!res.ok) throw new Error("Failed to book meeting");
 
       const data = await res.json();
+      console.log(data);
 
       setMessages((prev) => [
         ...prev,
@@ -248,8 +249,14 @@ export default function SimpleChat() {
           role: "assistant",
           content: "Please select a date for your meeting.",
         },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "",
+          type: "calendar",
+        },
       ]);
-      setShowCalendar(true);
+      // setShowCalendar(true);
       setStep("date");
     } else if (step === "summary") {
       // Construct payload for backend
@@ -275,16 +282,16 @@ export default function SimpleChat() {
     } else if (step === "idle") {
       // This is the new block for idle state asking
       try {
-        const res = await fetch(`/api/chat`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/ask`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId, // Pass userId for context
-            message: userMessage.content,
-            messages: messages.map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
+            userId: userId, // Pass userId for context
+            query: userMessage.content,
+            // messages: messages.map((m) => ({
+            //   role: m.role,
+            //   content: m.content,
+            // })),
           }),
         });
 
@@ -300,7 +307,7 @@ export default function SimpleChat() {
           {
             id: crypto.randomUUID(),
             role: "assistant",
-            content: data.message || "I received your message!",
+            content: data.answer || "I received your message!",
           },
         ]);
       } catch (error) {
@@ -319,8 +326,27 @@ export default function SimpleChat() {
   };
 
   // --- Handle date selection ---
+  // const handleDateSelect = (date: Date) => {
+  //   const formattedDate = date.toISOString().split("T")[0]; // YYYY-MM-DD
+  //   setBooking((prev) => ({ ...prev, date: formattedDate }));
+  //   setShowCalendar(false);
+  //   setMessages((prev) => [
+  //     ...prev,
+  //     {
+  //       id: crypto.randomUUID(),
+  //       role: "assistant",
+  //       content: "Now please pick a time.",
+  //     },
+  //   ]);
+  //   setShowTimes(true);
+  //   setStep("time");
+  // };
   const handleDateSelect = (date: Date) => {
-    const formattedDate = date.toISOString().split("T")[0]; // YYYY-MM-DD
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const formattedDate = `${year}-${month}-${day}`; // YYYY-MM-DD
+
     setBooking((prev) => ({ ...prev, date: formattedDate }));
     setShowCalendar(false);
     setMessages((prev) => [
@@ -404,11 +430,11 @@ export default function SimpleChat() {
   return (
     <div className="fixed bottom-6 right-6 z-50 w-[600px] max-w-[600px] ">
       {/* Calendar UI */}
-      <CalendarPopup
+      {/* <CalendarPopup
         isOpen={showCalendar}
         onClose={() => setShowCalendar(false)}
         onDateSelect={handleDateSelect}
-      />
+      /> */}
 
       {isMinimized ? (
         <button
@@ -433,7 +459,7 @@ export default function SimpleChat() {
                   {m.content}
                 </div>
               ) : m.type === "meeting-card" ? (
-                <div key={m.id} className="mr-auto max-w-md">
+                <div key={m.id} className=" max-w-md">
                   <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                     <h3 className="font-semibold text-gray-900 text-lg mb-3">
                       {m.meetingData?.summary}
@@ -470,12 +496,24 @@ export default function SimpleChat() {
                     </div>
                   </div>
                 </div>
+              ) : m.type === "calendar" ? (
+                // calendar message
+                <div key={m.id} className="mr-auto">
+                  <CalendarPopup
+                    isOpen={true}
+                    onClose={() => {}}
+                    onDateSelect={handleDateSelect}
+                  />
+                </div>
               ) : (
-                <div
-                  key={m.id}
-                  className="px-[16px] py-[9px] rounded-[10px] rounded-bl-none bg-[#F0F6FF] text-black mr-auto max-w-md whitespace-pre-wrap"
-                >
-                  {m.content}
+                <div className="flex items-end gap-5">
+                  <Image src={think} alt="icon" className="w-9 h-9" />
+                  <div
+                    key={m.id}
+                    className=" px-[16px] py-[9px] rounded-[10px] rounded-bl-none bg-[#F0F6FF] text-black mr-auto max-w-md whitespace-pre-wrap"
+                  >
+                    {m.content}
+                  </div>
                 </div>
               )
             )}
@@ -681,7 +719,10 @@ export default function SimpleChat() {
 
           {/* Input - Always show unless calendar or time picker is open */}
           {!showCalendar && !showTimes && !showServices && (
-            <form onSubmit={handleSubmit} className="flex gap-5 mb-5 px-5">
+            <form
+              onSubmit={handleSubmit}
+              className="flex gap-5 mb-5 px-5 border-t border-t-black/10 pt-5"
+            >
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}

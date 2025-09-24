@@ -47,7 +47,7 @@ const CalendarPopup: React.FC<CalendarPopupProps> = ({
   };
 
   return (
-    <div className="absolute bottom-14 left-0 right-0  bg-[#F2F2F2]  rounded-[20px]  max-w-[448px] mx-auto  z-20">
+    <div className="bg-[#F2F2F2]  rounded-[20px]  max-w-[448px] mx-auto  z-20">
       <div className="p-4 text-center">
         <h3 className="text-2xl font-medium text-black leading-[34px] tracking-[0.02em]">
           Select a Date & Time
