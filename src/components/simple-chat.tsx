@@ -12,6 +12,8 @@ import axios from "axios";
 import time from "../../public/images/time.png";
 import slot from "../../public/images/slot.png";
 import think from "../../public/images/think.png";
+import guest from "../../public/images/guest.png";
+import loadingIcon from "../../public/images/loadingIcon.png";
 
 interface Message {
   id: string;
@@ -57,6 +59,11 @@ export default function SimpleChat() {
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isClosed, setIsClosed] = useState(false);
+
+  // Guest email states
+  const [showGuestInput, setShowGuestInput] = useState(false);
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestEmails, setGuestEmails] = useState<string[]>([]);
 
   const [booking, setBooking] = useState<BookingData>({
     date: "",
@@ -126,6 +133,43 @@ export default function SimpleChat() {
     return `Asia/Dhaka (${dhakaTime.toLowerCase()})`;
   };
 
+  // --- Guest email functions ---
+  const handleAddGuest = () => {
+    setShowGuestInput(true);
+  };
+
+  const handleGuestEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (guestEmail.trim() && isValidEmail(guestEmail)) {
+      const newGuestEmails = [...guestEmails, guestEmail.trim()];
+      setGuestEmails(newGuestEmails);
+      setBooking((prev) => ({
+        ...prev,
+        guest_emails: [...prev.guest_emails, guestEmail.trim()],
+      }));
+      setGuestEmail("");
+      setShowGuestInput(false);
+    }
+  };
+
+  const handleRemoveGuest = (emailToRemove: string) => {
+    const updatedGuestEmails = guestEmails.filter(
+      (email) => email !== emailToRemove
+    );
+    setGuestEmails(updatedGuestEmails);
+    setBooking((prev) => ({
+      ...prev,
+      guest_emails: prev.guest_emails.filter(
+        (email) => email !== emailToRemove
+      ),
+    }));
+  };
+
+  const isValidEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   // --- Reset booking flow ---
   const resetBookingFlow = () => {
     setBooking({
@@ -142,6 +186,9 @@ export default function SimpleChat() {
     setShowServices(false);
     setSelectedServices([]);
     setSelectedTime("");
+    setGuestEmails([]);
+    setGuestEmail("");
+    setShowGuestInput(false);
   };
 
   // --- Finalize booking ---
@@ -179,7 +226,9 @@ export default function SimpleChat() {
             datetime: `${booking.time} - ${getEndTime(
               booking.time
             )}, ${formatDate(booking.date)}`,
-            guests: "0 Guests",
+            guests: `${guestEmails.length} Guest${
+              guestEmails.length !== 1 ? "s" : ""
+            }`,
             location: getCurrentDhakaTime(),
           },
         },
@@ -256,7 +305,6 @@ export default function SimpleChat() {
           type: "calendar",
         },
       ]);
-      // setShowCalendar(true);
       setStep("date");
     } else if (step === "summary") {
       // Construct payload for backend
@@ -266,9 +314,7 @@ export default function SimpleChat() {
         user_email: booking.user_email,
         summary: userMessage.content,
         description: userMessage.content,
-        guest_emails: [booking.user_email],
-        // userId, // Assuming userId is part of BookingData or passed separately if needed by your API
-        // messages, // Assuming messages is not part of BookingData directly but rather context for the AI
+        guest_emails: [booking.user_email, ...guestEmails],
       };
 
       // Log payload and userId
@@ -288,10 +334,6 @@ export default function SimpleChat() {
           body: JSON.stringify({
             userId: userId, // Pass userId for context
             query: userMessage.content,
-            // messages: messages.map((m) => ({
-            //   role: m.role,
-            //   content: m.content,
-            // })),
           }),
         });
 
@@ -326,21 +368,6 @@ export default function SimpleChat() {
   };
 
   // --- Handle date selection ---
-  // const handleDateSelect = (date: Date) => {
-  //   const formattedDate = date.toISOString().split("T")[0]; // YYYY-MM-DD
-  //   setBooking((prev) => ({ ...prev, date: formattedDate }));
-  //   setShowCalendar(false);
-  //   setMessages((prev) => [
-  //     ...prev,
-  //     {
-  //       id: crypto.randomUUID(),
-  //       role: "assistant",
-  //       content: "Now please pick a time.",
-  //     },
-  //   ]);
-  //   setShowTimes(true);
-  //   setStep("time");
-  // };
   const handleDateSelect = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -365,21 +392,6 @@ export default function SimpleChat() {
   const handleTimeClick = (time: string) => {
     setSelectedTime(time);
   };
-
-  // --- Handle time selection ---
-  // const handleTimeSelect = (time: string) => {
-  //   setBooking((prev) => ({ ...prev, time }));
-  //   setShowTimes(false);
-  //   setMessages((prev) => [
-  //     ...prev,
-  //     {
-  //       id: crypto.randomUUID(),
-  //       role: "assistant",
-  //       content: "What's the meeting about? (summary)",
-  //     },
-  //   ]);
-  //   setStep("summary");
-  // };
 
   const handleTimeNext = () => {
     if (selectedTime) {
@@ -407,14 +419,14 @@ export default function SimpleChat() {
     // Create summary from selected services
     const summary = selectedServices.join(", ");
 
-    // Construct payload for backend
+    // Construct payload for backend - include all guest emails
     const payload: BookingData = {
       date: booking.date,
       time: selectedTime, // Use selectedTime since booking.time might not be set yet
       user_email: booking.user_email,
       summary: summary,
       description: `Meeting to discuss: ${summary}`,
-      guest_emails: [booking.user_email],
+      guest_emails: [booking.user_email, ...guestEmails], // Include user email and guest emails
     };
 
     // Log payload and userId
@@ -423,19 +435,12 @@ export default function SimpleChat() {
 
     setShowServices(false);
     finalizeBooking(payload);
-
-    // setStep("summary");
   };
+
+  // if (isLoading) return <Image src={loadingIcon} alt="loading" />;
 
   return (
     <div className="fixed bottom-6 right-6 z-50 w-[600px] max-w-[600px] ">
-      {/* Calendar UI */}
-      {/* <CalendarPopup
-        isOpen={showCalendar}
-        onClose={() => setShowCalendar(false)}
-        onDateSelect={handleDateSelect}
-      /> */}
-
       {isMinimized ? (
         <button
           onClick={() => setIsMinimized(false)}
@@ -459,39 +464,47 @@ export default function SimpleChat() {
                   {m.content}
                 </div>
               ) : m.type === "meeting-card" ? (
-                <div key={m.id} className=" max-w-md">
-                  <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                    <h3 className="font-semibold text-gray-900 text-lg mb-3">
+                <div key={m.id} className=" max-w-md mx-auto">
+                  <div className="bg-white border border-black/5 rounded-[20px] p-6 shadow-lg">
+                    <h3 className="font-medium text-black text-2xl leading-[34px] tracking-[-0.02em] max-w-[350px] border-b border-b-black/10 mb-8 pb-4">
                       {m.meetingData?.summary}
                     </h3>
 
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-                          <span className="text-white text-xs">⏱</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 flex items-center justify-center">
+                          <Image alt="time icon" src={time} />
                         </div>
-                        <span>{m.meetingData?.duration}</span>
+                        <span className="text-[#4D4D4D] text-sm leading-[22px] tracking-0">
+                          {m.meetingData?.duration}
+                        </span>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-                          <span className="text-white text-xs">📅</span>
+                      <div className="flex items-start gap-3">
+                        <div className="">
+                          <Image alt="slot" src={slot} className="w-5 h-5" />
                         </div>
-                        <span>{m.meetingData?.datetime}</span>
+                        <span className="text-[#4D4D4D] text-sm leading-[22px] tracking-0">
+                          {m.meetingData?.datetime}
+                        </span>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-                          <span className="text-white text-xs">👥</span>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center">
+                          <Image alt="icon" src={guest} />
                         </div>
-                        <span>{m.meetingData?.guests}</span>
+                        <span className="text-[#4D4D4D] text-sm leading-[22px] tracking-0">
+                          {m.meetingData?.guests}
+                        </span>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-                          <span className="text-white text-xs">🌍</span>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center">
+                          <Image src={globe} alt="globe" />
                         </div>
-                        <span>{m.meetingData?.location}</span>
+                        <span className="text-sm leading-[22px] tracking-0 text-[#4D4D4D]">
+                          {m.meetingData?.location}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -555,7 +568,6 @@ export default function SimpleChat() {
                       Time zone
                     </p>
                     <div className="flex items-center gap-3 text-sm leading-[22px] tracking-0 text-black">
-                      {/* <span className="mr-3">🌍</span> */}
                       <Image alt="globe" src={globe} />
                       <span>{getCurrentDhakaTime()}</span>
                     </div>
@@ -626,14 +638,15 @@ export default function SimpleChat() {
                 </div>
 
                 {/* Meeting details header */}
-                <div className="mb-6 border-b">
-                  <h3 className="text-2xl font-medium leading-[34px] tracking-[0.02em] text-black max-w-[350px] mb-2">
-                    30 Minute Complimentary Discovery Call
-                  </h3>
+                <div className="mb-6 border-b border-b-black/10 w-full">
+                  <div>
+                    <h3 className="text-2xl font-medium leading-[34px] tracking-[0.02em] text-black max-w-[350px] mb-2">
+                      30 Minute Complimentary Discovery Call
+                    </h3>
+                  </div>
 
                   <div className="space-y-2 ">
                     <div className="flex items-center gap-3">
-                      {/* <span>⏱</span> */}
                       <Image alt="time" src={time} />
                       <span className="text-sm text-[#4D4D4D] leading-[22px] tracking-0">
                         30 min
@@ -641,8 +654,6 @@ export default function SimpleChat() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      {/* <span>📅</span> */}
-
                       <Image alt="slot" src={slot} />
                       <span className="text-sm leading-[22px] tracking-0 text-[#4D4D4D]">
                         {booking.time} - {getEndTime(booking.time)},{" "}
@@ -656,7 +667,6 @@ export default function SimpleChat() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      {/* <span>🌍</span> */}
                       <Image src={globe} alt="globe" />
                       <span className="text-sm leading-[22px] tracking-0 text-[#4D4D4D]">
                         {getCurrentDhakaTime()}
@@ -664,14 +674,78 @@ export default function SimpleChat() {
                     </div>
                   </div>
 
-                  <button className="text-[#1158E5] px-[18px] py-[7px] rounded-[44px] border border-black/10 text-[18px] leading-[30px] tracking-0 mt-8 font-medium mb-5">
-                    Add Guest
-                  </button>
-                  {/* <hr className="w-full" /> */}
+                  {/* Add Guest Section */}
+                  <div className="mt-8 mb-5">
+                    {!showGuestInput ? (
+                      <button
+                        onClick={handleAddGuest}
+                        className="text-[#1158E5] px-[18px] py-[7px] rounded-[44px] border border-black/10 text-[18px] leading-[30px] tracking-0 font-medium"
+                      >
+                        Add Guest
+                      </button>
+                    ) : (
+                      <form
+                        onSubmit={handleGuestEmailSubmit}
+                        className="flex gap-2 mb-3"
+                      >
+                        <input
+                          type="email"
+                          value={guestEmail}
+                          onChange={(e) => setGuestEmail(e.target.value)}
+                          placeholder="Enter guest email"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-[44px] text-sm"
+                          autoFocus
+                        />
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-[#1158E5] text-white rounded-[44px] text-sm hover:bg-[#0E47C7]"
+                        >
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowGuestInput(false);
+                            setGuestEmail("");
+                          }}
+                          className="px-4 py-2 bg-gray-500 text-white rounded-[44px] text-sm hover:bg-gray-600"
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    )}
+
+                    {/* Display added guests */}
+                    {guestEmails.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-sm text-[#4D4D4D] mb-2">
+                          Added guests:
+                        </p>
+                        <div className="space-y-1">
+                          {guestEmails.map((email, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between bg-white px-3 py-2 rounded-[44px] border border-black/10"
+                            >
+                              <span className="text-sm text-[#4D4D4D]">
+                                {email}
+                              </span>
+                              <button
+                                onClick={() => handleRemoveGuest(email)}
+                                className="text-red-500 text-sm hover:text-red-700"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Services selection */}
-                <div className="mb-6">
+                <div className="mb-6 ">
                   <h4 className="text-base font-medium text-black leading-[24px] tracking-0 mb-5">
                     Which of our services are you most interested in?
                   </h4>
@@ -717,6 +791,21 @@ export default function SimpleChat() {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* loading */}
+
+          {isLoading && (
+            <div className="flex items-end gap-5 mb-10 max-w-md p-5">
+              <Image src={think} alt="icon" className="w-9 h-9" />
+              <div className="">
+                <Image
+                  src={loadingIcon}
+                  alt="loading"
+                  className="w-[61px] h-[46px]"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Input - Always show unless calendar or time picker is open */}
           {!showCalendar && !showTimes && !showServices && (
             <form
@@ -728,7 +817,6 @@ export default function SimpleChat() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Type your response..."
                 className="flex-1 px-[16px] py-[9px] bg-[#F2F2F2] rounded-[60px]"
-                disabled={isLoading}
               />
               <button type="submit" disabled={isLoading}>
                 <Image src={submit} alt="submit" />
