@@ -290,22 +290,36 @@ export default function SimpleChat() {
       ]);
       setStep("email");
     } else if (step === "email") {
-      setBooking((prev) => ({ ...prev, user_email: userMessage.content }));
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "Please select a date for your meeting.",
-        },
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "",
-          type: "calendar",
-        },
-      ]);
-      setStep("date");
+      const email = userMessage.content.trim();
+      if (isValidEmail(email)) {
+        setBooking((prev) => ({ ...prev, user_email: email }));
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: "Please select a date for your meeting.",
+          },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: "",
+            type: "calendar",
+          },
+        ]);
+        setStep("date");
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content:
+              "Please enter a valid email address (e.g., john@example.com).",
+          },
+        ]);
+        // Stay in email step, don't proceed
+      }
     } else if (step === "summary") {
       // Construct payload for backend
       const payload: BookingData = {
@@ -440,7 +454,7 @@ export default function SimpleChat() {
   // if (isLoading) return <Image src={loadingIcon} alt="loading" />;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-[600px] max-w-[600px] ">
+    <div className="fixed bottom-6 right-14 z-50 w-[600px] max-w-[600px] ">
       {isMinimized ? (
         <button
           onClick={() => setIsMinimized(false)}
